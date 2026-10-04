@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: securebank
+      POSTGRES_USER: securebank
+      POSTGRES_PASSWORD: securebank_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - securebank_pg:/var/lib/postgresql/data
+      - ./server/sql/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U securebank -d securebank"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  server:
+    build: ./server
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://securebank:securebank_dev_password@db:5432/securebank
+      JWT_SECRET: securebank_local_demo_secret_change_for_real_deployments
+      CLIENT_ORIGIN: http://localhost:5173
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+  client:
+    build: ./client
+    environment:
+      VITE_API_URL: http://localhost:4000/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+volumes:
+  securebank_pg:
